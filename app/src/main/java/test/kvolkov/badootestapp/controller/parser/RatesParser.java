@@ -1,14 +1,13 @@
-package test.kvolkov.badootestapp.controller;
+package test.kvolkov.badootestapp.controller.parser;
 
 import android.content.Context;
 import android.support.annotation.Nullable;
+import android.support.annotation.WorkerThread;
 import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -20,7 +19,7 @@ import test.kvolkov.badootestapp.model.currency.ConversionModel.Currency;
  * @author Kirill Volkov (https://github.com/vulko).
  *         Copyright (C). All rights reserved.
  */
-public class RatesParser {
+public class RatesParser extends AbstractJsonParser {
 
     /**
      * Json tag's to parse.
@@ -37,8 +36,10 @@ public class RatesParser {
      * @return  A {@link List<ExchangeRateHolder>} with exchange rates parsed mFrom json file,
      *          or null in case failed mTo do so.
      */
+    @WorkerThread
+    @Override
     @Nullable
-    public List<ExchangeRateHolder> parseRates(final Context context, final String assetName) {
+    public List<ExchangeRateHolder> parse(final Context context, final String assetName) {
         try {
             String jstr = loadJSONStringFromAssets(context, assetName);
 
@@ -77,39 +78,16 @@ public class RatesParser {
         }
     }
 
-    private String loadJSONStringFromAssets(final Context context, final String assetName) {
-        String json = null;
-        InputStream is = null;
-        try {
-            is = context.getAssets().open(assetName);
-            int size = is.available();
-            byte[] buffer = new byte[size];
-            is.read(buffer);
-            json = new String(buffer, "UTF-8");
-        } catch (IOException e) {
-            Log.e(getClass().getName(), "Failed to parse JSON!" + e.getMessage());
-            return null;
-        } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                } catch (IOException e) {
-                    Log.e(getClass().getName(), "Failed to close input stream!" + e.getMessage());
-                }
-            }
-        }
-
-        return json;
-    }
-
     /**
-     * Helper class to parse data from json and then init model.
+     * Immutable helper class to parse data from json and then initFromAssets model.
+     * TODO: Use Builder pattern.
      */
-    public class ExchangeRateHolder {
-        public Currency mFrom;
-        public Currency mTo;
+    public final class ExchangeRateHolder {
+
+        private Currency mFrom;
+        private Currency mTo;
         // Default value should be 0, so can be checked if parsed properly. Real value should be always > 0
-        public double mRate = 0.d;
+        private double mRate = 0.d;
 
         ExchangeRateHolder(Currency from, Currency to, double rate) {
             mFrom = from;
@@ -126,6 +104,12 @@ public class RatesParser {
             return mFrom != null && mTo != null && mRate > 0.d;
         }
 
+        /**
+         * Getters for immutable fields.
+         */
+        public Currency from() { return mFrom; }
+        public Currency to() { return mTo; }
+        public double rate() { return mRate; }
     }
 
 }

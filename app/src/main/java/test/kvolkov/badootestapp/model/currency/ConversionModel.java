@@ -1,6 +1,7 @@
 package test.kvolkov.badootestapp.model.currency;
 
 import android.content.Context;
+import android.support.annotation.NonNull;
 import android.support.annotation.WorkerThread;
 
 import java.util.HashMap;
@@ -8,10 +9,10 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 
-import test.kvolkov.badootestapp.controller.RatesParser;
+import test.kvolkov.badootestapp.controller.parser.RatesParser;
 
 /**
- * Conversion model. Parses JSON mFrom assets and provides API mTo convert currencies.
+ * Conversion model. Parses JSON mFrom assets and provides API to convert currencies.
  *
  * @author Kirill Volkov (https://github.com/vulko).
  *         Copyright (C). All rights reserved.
@@ -24,28 +25,9 @@ public class ConversionModel {
     public enum Currency { AUD, CAD, EUR, GBP, USD }
 
     // Currencies exchange rates model
+    @NonNull
     private Map<Currency, CurrencyConversionRatesModel> mCurrencyConversionMap = new HashMap<>();
     private boolean mIsInitialized = false;
-
-    /**
-     * Singleton.
-     */
-    private static volatile ConversionModel sInstance = null;
-    private ConversionModel() {}
-
-    /**
-     * @return  Self.
-     */
-    public static ConversionModel getInstance() {
-        if (sInstance == null) {
-            synchronized(ConversionModel.class) {
-                if (sInstance == null) {
-                    sInstance = new ConversionModel();
-                }
-            }
-        }
-        return sInstance;
-    }
 
     /**
      * Check if model was initialized and capable of converting currencies.
@@ -59,13 +41,17 @@ public class ConversionModel {
     /**
      * Initializer. Don't run on UI thread, as it opens and parses an asset file.
      *
+     * [NOTE]:
+     *      With current architecture if called twice with different assets specified,
+     *      will load rates from both files to this model.
+     *
      * @param context   The Holy Context :)
      * @param assetName Asset name.
      */
     @WorkerThread
-    public synchronized void init(final Context context, final String assetName) {
-        RatesParser parser = new RatesParser();
-        List<RatesParser.ExchangeRateHolder> rates = parser.parseRates(context, assetName);
+    public synchronized void initFromAssets(final Context context, final String assetName) {
+        final RatesParser parser = new RatesParser();
+        List<RatesParser.ExchangeRateHolder> rates = parser.parse(context, assetName);
 
         if (rates == null || rates.size() == 0) {
             // TODO: handle the fact that failed to parse json or it's empty/missing
@@ -84,13 +70,13 @@ public class ConversionModel {
             CurrencyConversionRatesModel currencyModel = null;
             ListIterator<RatesParser.ExchangeRateHolder> iterator = rates.listIterator();
             while (iterator.hasNext()) {
-                RatesParser.ExchangeRateHolder exchangeRate = iterator.next();
-                if (exchangeRate == null || !exchangeRate.isOk()) {
+                RatesParser.ExchangeRateHolder parsedRate = iterator.next();
+                if (parsedRate == null || !parsedRate.isOk()) {
                     // TODO: failed to parse json properly. Handle
                     continue;
                 }
 
-                final Currency parsedCurrency = exchangeRate.mFrom;
+                final Currency parsedCurrency = parsedRate.from();
                 if (parsedCurrency.equals(supportedCurrency)) {
                     // TODO: check if it already exist and update existing model
                     CurrencyConversionRatesModel existingCurrencyModel = mCurrencyConversionMap.get(parsedCurrency);
@@ -100,7 +86,7 @@ public class ConversionModel {
                         currencyModel = existingCurrencyModel;
                     }
 
-                    currencyModel.addConversionRate(exchangeRate.mTo, exchangeRate.mRate);
+                    currencyModel.addConversionRate(parsedRate.to(), parsedRate.rate());
                     // remove self from list and continue parsing
                     iterator.remove();
                 }
@@ -126,7 +112,7 @@ public class ConversionModel {
      * @return  A converted amount as double.
      * @throws IllegalArgumentException In case missing conversion rate for specified currencies.
      */
-    public double convert(final double amount, final Currency from, final Currency to) {
+    public synchronized double convert(final double amount, final Currency from, final Currency to) {
         CurrencyConversionRatesModel conversionModel = mCurrencyConversionMap.get(from);
         if (conversionModel != null) {
             return conversionModel.convertTo(amount, to);
@@ -141,6 +127,7 @@ public class ConversionModel {
     protected void clear() {
         if (mIsInitialized) {
             mCurrencyConversionMap.clear();
+            mIsInitialized = false;
         }
     }
 
