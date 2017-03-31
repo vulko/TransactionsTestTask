@@ -4,6 +4,8 @@ import android.content.Context;
 import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 
+import org.json.JSONException;
+
 import java.util.List;
 
 import test.kvolkov.badootestapp.controller.parser.TransactionsParser;
@@ -26,7 +28,7 @@ public class TransactionModel {
      * @param assetName Asset name.
      */
     @WorkerThread
-    public synchronized void initFromAssets(final Context context, final String assetName) {
+    public synchronized void initFromAssets(final Context context, final String assetName) throws NullPointerException, IllegalArgumentException, JSONException {
         final TransactionsParser parser = new TransactionsParser();
         mTransactionsList = parser.parse(context, assetName);
 

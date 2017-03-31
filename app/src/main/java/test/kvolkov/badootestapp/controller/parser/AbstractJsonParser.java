@@ -5,6 +5,8 @@ import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
 import android.util.Log;
 
+import org.json.JSONException;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -26,7 +28,7 @@ public abstract class AbstractJsonParser {
      */
     @Nullable
     @WorkerThread
-    public abstract List<?> parse(final Context context, final String assetName);
+    public abstract List<?> parse(final Context context, final String assetName) throws NullPointerException, JSONException;
 
     /**
      * Loads JSON from assets.
